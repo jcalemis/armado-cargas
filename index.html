@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Armado del Día — Los Amigos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap');
+
+:root {
+  --bg:       #1a1814;
+  --surface:  #242018;
+  --card:     #2e2a22;
+  --border:   #3d3830;
+  --text:     #f0ece4;
+  --muted:    #8a8070;
+  --accent:   #e8a020;
+  --green:    #22c55e;
+  --green-dk: #16a34a;
+  --red:      #ef4444;
+  --radius:   12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100%; }
+
+.screen { display: none; flex-direction: column; min-height: 100vh; }
+.screen.active { display: flex; }
+
+/* ══ LOGIN ══ */
+#sLogin { align-items: center; justify-content: center; padding: 32px 20px; gap: 24px; }
+.brand { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: center; }
+.login-card {
+  width: 100%; max-width: 400px;
+  background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 28px 24px; text-align: center;
+}
+.login-icon { font-size: 3rem; margin-bottom: 12px; }
+.login-card h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+.login-card p { font-size: 0.82rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 20px; }
+.login-input {
+  width: 100%; background: var(--card); border: 2px solid var(--border);
+  border-radius: 8px; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 1.1rem; font-weight: 600; padding: 14px 16px; outline: none;
+  transition: border-color 0.15s; margin-bottom: 12px; text-align: center;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-input::placeholder { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+.btn-primary {
+  width: 100%; padding: 14px; border: none; border-radius: 8px;
+  background: var(--accent); color: #1a1814;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+  font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.88; }
+
+/* ══ CARGA ══ */
+#sCarga { align-items: center; justify-content: center; padding: 28px 20px; gap: 16px; }
+.carga-header { width: 100%; max-width: 440px; display: flex; align-items: center; gap: 10px; }
+.carga-user { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--accent); background: rgba(232,160,32,0.1); border: 1px solid rgba(232,160,32,0.3); padding: 5px 12px; border-radius: 20px; }
+.carga-title { flex: 1; font-size: 0.9rem; font-weight: 700; }
+
+/* Drive card */
+.drive-card {
+  width: 100%; max-width: 440px;
+  background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 20px;
+}
+.drive-card-title { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px; }
+.drive-saved {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 10px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.drive-saved:hover { border-color: var(--accent); }
+.drive-saved-lbl { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drive-saved-lbl b { color: var(--accent); }
+.drive-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.drive-input {
+  flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem;
+  padding: 10px 12px; outline: none; transition: border-color 0.15s;
+}
+.drive-input:focus { border-color: var(--accent); }
+.drive-input::placeholder { color: var(--muted); }
+.drive-btn {
+  padding: 10px 16px; background: var(--accent); color: #1a1814;
+  border: none; border-radius: 6px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+}
+.drive-btn:hover { opacity: 0.85; }
+.drive-btn:disabled { opacity: 0.4; cursor: default; }
+.drive-hint { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); line-height: 1.6; }
+.drive-hint b { color: var(--text); }
+
+.upload-divider { width: 100%; max-width: 440px; display: flex; align-items: center; gap: 10px; }
+.upload-divider::before, .upload-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.upload-divider span { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
+
+.upload-box {
+  width: 100%; max-width: 440px;
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: 24px; text-align: center;
+  cursor: pointer; transition: all 0.2s;
+}
+.upload-box:hover, .upload-box.over { border-color: var(--accent); background: #2a2518; }
+.upload-box .ub-icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-box h2 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.upload-box p { font-size: 0.78rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+#fileInput { display: none; }
+
+.progress-wrap { width: 100%; max-width: 440px; display: none; }
+.progress-bar { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+.progress-text { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); margin-top: 6px; text-align: center; }
+
+/* ══ LISTA ══ */
+#sList { flex-direction: column; }
+.list-nav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0; position: sticky; top: 0; z-index: 10;
+}
+.list-nav-title { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; font-weight: 700; flex: 1; }
+.list-user-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; font-weight: 700; color: var(--accent); background: rgba(232,160,32,0.1); border: 1px solid rgba(232,160,32,0.3); padding: 3px 8px; border-radius: 12px; white-space: nowrap; }
+.btn-sm {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
+  padding: 5px 10px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--muted); color: var(--text); }
+.btn-sm.danger:hover { border-color: var(--red); color: var(--red); }
+
+.day-summary { padding: 12px 16px; display: flex; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.day-stat { flex: 1; min-width: 72px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 8px; text-align: center; }
+.day-stat .ds-num { font-family: 'IBM Plex Mono', monospace; font-size: 1.3rem; font-weight: 700; display: block; line-height: 1; }
+.day-stat .ds-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; color: var(--muted); text-transform: uppercase; margin-top: 3px; display: block; }
+.ds-done .ds-num { color: var(--green); }
+.ds-prog .ds-num { color: var(--accent); }
+
+.filters { padding: 8px 16px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
+.filter-btn {
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: none; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+.filter-btn.active { background: var(--accent); color: #1a1814; border-color: var(--accent); font-weight: 700; }
+
+.vendors-list { flex: 1; overflow-y: auto; padding: 12px 16px 24px; }
+.vendor-card {
+  background: var(--card); border: 2px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 10px;
+  cursor: pointer; transition: all 0.15s; overflow: hidden;
+}
+.vendor-card:hover { border-color: var(--accent); }
+.vendor-card.done { border-color: var(--green-dk); opacity: 0.6; }
+.vendor-card.in-progress { border-color: var(--accent); }
+.vc-main { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.vc-status { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; border: 2px solid var(--border); background: var(--surface); }
+.vendor-card.done       .vc-status { background: var(--green-dk); border-color: var(--green); }
+.vendor-card.in-progress .vc-status { background: rgba(232,160,32,0.15); border-color: var(--accent); }
+.vc-info { flex: 1; min-width: 0; }
+.vc-name { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.vc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.vc-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; padding: 2px 7px; border-radius: 3px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.vc-tag.zona   { color: var(--accent); border-color: rgba(232,160,32,0.4); background: rgba(232,160,32,0.08); }
+.vc-tag.consol { color: #7aa4cc; border-color: rgba(122,164,204,0.4); background: rgba(122,164,204,0.08); }
+.vc-arrow { color: var(--muted); font-size: 1.2rem; flex-shrink: 0; }
+.vendor-card.done .vc-arrow { color: var(--green); }
+.vc-progress { padding: 0 16px 12px; }
+.vc-prog-row { display: flex; align-items: center; gap: 8px; }
+.vc-prog-bar { flex: 1; background: var(--border); border-radius: 3px; height: 5px; overflow: hidden; }
+.vc-prog-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; }
+.vendor-card.done .vc-prog-fill { background: var(--green); }
+.vc-prog-num { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); min-width: 36px; text-align: right; }
+
+/* ══ ARMADO ══ */
+#sArmado { flex-direction: column; height: 100vh; overflow: hidden; }
+.arm-nav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.arm-back { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 1rem; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.arm-back:hover { border-color: var(--accent); color: var(--accent); }
+.arm-vend-name { font-size: 0.9rem; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arm-zona-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 700; background: rgba(232,160,32,0.12); color: var(--accent); padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
+
+.arm-global-prog { padding: 10px 16px 8px; flex-shrink: 0; }
+.agp-row  { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.agp-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+.agp-pct   { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 700; color: var(--accent); }
+.agp-bar   { background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+.agp-fill  { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s; }
+
+.voz-bar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.voz-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: var(--card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: all 0.2s; flex-shrink: 0; }
+.voz-btn.hablando { background: rgba(232,160,32,0.2); border-color: var(--accent); animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(232,160,32,0.4)} 50%{box-shadow:0 0 0 8px rgba(232,160,32,0)} }
+.voz-texto { flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voz-texto.leyendo { color: var(--accent); }
+
+.arm-fam-hdr { padding: 10px 16px 8px; flex-shrink: 0; }
+.arm-fam-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.arm-nav-btn { width: 36px; height: 36px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.arm-nav-btn:disabled { opacity: 0.2; cursor: default; }
+.arm-nav-btn:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+.arm-fam-info { flex: 1; min-width: 0; }
+.arm-fam-counter { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-bottom: 2px; }
+.arm-fam-name { font-size: 1.05rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arm-fam-code { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.arm-fam-prog-row { display: flex; align-items: center; gap: 8px; }
+.arm-fam-prog-bar { flex: 1; background: var(--border); border-radius: 4px; height: 7px; overflow: hidden; }
+.arm-fam-prog-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s; }
+.arm-fam-prog-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); min-width: 42px; text-align: right; }
+
+.arm-items { flex: 1; overflow-y: auto; padding: 8px 16px 16px; -webkit-overflow-scrolling: touch; }
+.item-card { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; transition: all 0.2s; user-select: none; }
+.item-card:active { transform: scale(0.985); }
+.item-card.checked { background: #0f2d1a; border-color: var(--green-dk); }
+.item-card.active-item { border-color: var(--accent); background: #2a2010; box-shadow: 0 0 0 3px rgba(232,160,32,0.2); }
+.item-card.active-item.checked { border-color: var(--green); background: #0f2d1a; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+.item-chk { width: 38px; height: 38px; border-radius: 8px; border: 2.5px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; transition: all 0.15s; }
+.item-card.checked .item-chk { background: var(--green); border-color: var(--green); color: #fff; }
+.item-info { flex: 1; min-width: 0; }
+.item-desc { font-size: 1rem; font-weight: 600; line-height: 1.3; transition: color 0.15s; }
+.item-card.checked .item-desc { color: var(--muted); text-decoration: line-through; }
+.item-cod { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+.item-qty { font-family: 'IBM Plex Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--accent); flex-shrink: 0; min-width: 44px; text-align: right; transition: color 0.15s; }
+.item-card.checked .item-qty { color: var(--muted); }
+
+.voz-controles { display: flex; gap: 0; flex-shrink: 0; border-top: 1px solid var(--border); }
+.vc-btn { flex: 1; padding: 18px 0; border: none; background: var(--surface); color: var(--text); font-size: 1.6rem; cursor: pointer; transition: background 0.15s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.vc-btn:active { background: var(--card); }
+.vc-btn span { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.vc-btn.vc-prev { border-right: 1px solid var(--border); color: #7aa4cc; }
+.vc-btn.vc-rep  { color: var(--accent); }
+.vc-btn.vc-next { border-left: 1px solid var(--border); color: var(--green); }
+
+.done-overlay { display: none; position: absolute; inset: 0; background: rgba(10,25,15,0.97); flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 50; text-align: center; padding: 32px; }
+.done-overlay.show { display: flex; }
+.do-icon  { font-size: 5rem; }
+.do-title { font-size: 2rem; font-weight: 700; color: var(--green); }
+.do-sub   { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; }
+.do-next  { margin-top: 10px; padding: 20px 48px; background: var(--green); color: #fff; border: none; border-radius: var(--radius); font-family: 'IBM Plex Mono', monospace; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; }
+.do-undo  { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; padding: 10px 24px; cursor: pointer; }
+
+#armWrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+/* ══ FINAL VENDEDOR ══ */
+#sVendFinal { align-items: center; justify-content: center; padding: 32px; gap: 18px; text-align: center; }
+.vf-icon  { font-size: 5rem; }
+.vf-title { font-size: 2rem; font-weight: 700; color: var(--green); }
+.vf-sub   { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--muted); }
+.vf-stats { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 32px; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--muted); line-height: 2; }
+.vf-stats strong { color: var(--text); font-size: 1rem; }
+.btn-volver { padding: 18px 40px; background: var(--accent); color: #1a1814; border: none; border-radius: var(--radius); font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+
+/* Modal nuevo día */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; align-items: center; justify-content: center; padding: 24px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 28px 24px; max-width: 360px; width: 100%; text-align: center; }
+.modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+.modal p  { font-size: 0.82rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; line-height: 1.6; margin-bottom: 20px; }
+.modal-btns { display: flex; gap: 10px; }
+.modal-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+.modal-cancel { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+.modal-confirm { background: var(--red); color: #fff; }
+
+.arm-items::-webkit-scrollbar, .vendors-list::-webkit-scrollbar { width: 4px; }
+.arm-items::-webkit-scrollbar-thumb, .vendors-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="screen active" id="sLogin">
+  <div class="brand">⬡ Los Amigos Distribuciones</div>
+  <div class="login-card">
+    <div class="login-icon">👤</div>
+    <h2>¿Quién sos?</h2>
+    <p>Ingresá tu nombre para guardar tu progreso</p>
+    <input class="login-input" id="loginInput" type="text" placeholder="Tu nombre o número" maxlength="30" autocomplete="off">
+    <button class="btn-primary" onclick="confirmarLogin()">Entrar →</button>
+  </div>
+</div>
+
+<!-- CARGA -->
+<div class="screen" id="sCarga">
+  <div class="carga-header">
+    <div class="carga-title">📦 Cargar PDFs del día</div>
+    <div class="carga-user" id="cargaUser"></div>
+  </div>
+
+  <div class="drive-card">
+    <div class="drive-card-title">📁 Google Drive</div>
+    <div class="drive-saved" id="driveSaved" style="display:none" onclick="usarLinkGuardado()">
+      <span>📂</span>
+      <span class="drive-saved-lbl">Última carpeta: <b id="driveSavedFecha">—</b></span>
+      <span style="color:var(--accent);font-size:0.75rem;font-weight:700">USAR ›</span>
+    </div>
+    <div class="drive-input-row">
+      <input class="drive-input" id="driveInput" type="url" placeholder="Link de carpeta Drive…">
+      <button class="drive-btn" id="driveBtnCargar" onclick="cargarDesdeDrive()">Cargar</button>
+    </div>
+    <div class="drive-hint">
+      <b>Cómo compartir la carpeta:</b> clic derecho → Compartir → "Cualquiera con el link" → Copiar link
+    </div>
+  </div>
+
+  <div class="upload-divider"><span>o subí manualmente</span></div>
+
+  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="ub-icon">📄</div>
+    <h2>ZIP o PDFs sueltos</h2>
+    <p>Tocá o arrastrá los archivos</p>
+  </div>
+  <input type="file" id="fileInput" accept=".pdf,.zip" multiple>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-text" id="progressText">Procesando…</div>
+  </div>
+</div>
+
+<!-- LISTA -->
+<div class="screen" id="sList">
+  <div class="list-nav">
+    <div class="list-nav-title">📋 Armado del Día</div>
+    <div class="list-user-badge" id="listUser"></div>
+    <button class="btn-sm" onclick="cambiarUsuario()">👤</button>
+    <button class="btn-sm danger" onclick="mostrarModalNuevoDia()">🗑 Nuevo día</button>
+  </div>
+  <div class="day-summary" id="daySummary"></div>
+  <div class="filters">
+    <button class="filter-btn active" id="fAll"  onclick="setFilter('all')">Todos</button>
+    <button class="filter-btn"        id="fPend" onclick="setFilter('pend')">Pendientes</button>
+    <button class="filter-btn"        id="fProg" onclick="setFilter('prog')">En curso</button>
+    <button class="filter-btn"        id="fDone" onclick="setFilter('done')">Listos</button>
+  </div>
+  <div class="vendors-list" id="vendorsList"></div>
+</div>
+
+<!-- ARMADO -->
+<div class="screen" id="sArmado">
+  <div class="arm-nav">
+    <button class="arm-back" onclick="volverALista()">‹</button>
+    <div class="arm-vend-name" id="armVendName">—</div>
+    <div class="arm-zona-tag"  id="armZona">ZONA —</div>
+  </div>
+  <div class="arm-global-prog">
+    <div class="agp-row">
+      <span class="agp-label" id="agpLabel">0 de 0 artículos</span>
+      <span class="agp-pct"   id="agpPct">0%</span>
+    </div>
+    <div class="agp-bar"><div class="agp-fill" id="agpFill" style="width:0%"></div></div>
+  </div>
+  <div class="voz-bar">
+    <button class="voz-btn pausado" id="vozBtn" onclick="toggleVoz()">🔊</button>
+    <div class="voz-texto" id="vozTexto">Tocá 🔊 para activar el dictado</div>
+  </div>
+  <div id="armWrapper">
+    <div class="arm-fam-hdr">
+      <div class="arm-fam-nav">
+        <button class="arm-nav-btn" id="btnPrev" onclick="irFam(currentFam-1)">‹</button>
+        <div class="arm-fam-info">
+          <div class="arm-fam-counter" id="armFamCounter">Familia 1 de 1</div>
+          <div class="arm-fam-name"    id="armFamName">—</div>
+        </div>
+        <div class="arm-fam-code" id="armFamCode">[0000]</div>
+        <button class="arm-nav-btn" id="btnNext" onclick="irFam(currentFam+1)">›</button>
+      </div>
+      <div class="arm-fam-prog-row">
+        <div class="arm-fam-prog-bar"><div class="arm-fam-prog-fill" id="armFamFill" style="width:0%"></div></div>
+        <div class="arm-fam-prog-lbl" id="armFamLbl">0/0</div>
+      </div>
+    </div>
+    <div class="arm-items" id="armItems"></div>
+    <div class="done-overlay" id="doneOverlay">
+      <div class="do-icon">✅</div>
+      <div class="do-title">¡FAMILIA LISTA!</div>
+      <div class="do-sub" id="doFamName"></div>
+      <button class="do-next" id="doNextBtn" onclick="avanzarFam()">Siguiente familia →</button>
+      <button class="do-undo" onclick="deshacerUltimo()">↩ Deshacer último</button>
+    </div>
+  </div>
+  <div class="voz-controles">
+    <button class="vc-btn vc-prev" onclick="navegarItem(-1)">⬅️<span>Anterior</span></button>
+    <button class="vc-btn vc-rep"  onclick="leerActual()">🔁<span>Repetir</span></button>
+    <button class="vc-btn vc-next" onclick="navegarItem(1)">✅<span>Siguiente</span></button>
+  </div>
+</div>
+
+<!-- FINAL VENDEDOR -->
+<div class="screen" id="sVendFinal">
+  <div class="vf-icon">🎉</div>
+  <div class="vf-title">¡ARMADO COMPLETO!</div>
+  <div class="vf-sub"   id="vfSub"></div>
+  <div class="vf-stats" id="vfStats"></div>
+  <button class="btn-volver" onclick="volverALista()">← Volver a la lista</button>
+</div>
+
+<!-- MODAL NUEVO DÍA -->
+<div class="modal-overlay" id="modalNuevoDia">
+  <div class="modal">
+    <h3>🗑 Nuevo día</h3>
+    <p>Esto borra los PDFs cargados y <b>todo el progreso</b> de todos los operarios. No se puede deshacer.</p>
+    <div class="modal-btns">
+      <button class="modal-btn modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="modal-btn modal-confirm" onclick="ejecutarNuevoDia()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── KEYS DE STORAGE ────────────────────────────────────────────────────────
+const KEY_USER      = 'armado_usuario';
+const KEY_VENDORS   = 'armado_vendors_data';   // JSON de todos los vendors (estructura)
+const KEY_PROGRESS  = (user) => `armado_prog_${user}`;  // progreso por operario
+const KEY_DRIVE     = 'armado_drive_link';
+
+// ── ESTADO ─────────────────────────────────────────────────────────────────
+let vendors     = [];   // estructura parseada de PDFs
+let currentVend = null;
+let currentFam  = 0;
+let currentItem = 0;
+let filterMode  = 'all';
+let vozActiva   = false;
+let usuarioActual = '';
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function init() {
+  // ¿Hay usuario guardado?
+  const user = localStorage.getItem(KEY_USER);
+  if (user) {
+    usuarioActual = user;
+    // ¿Hay PDFs del día guardados?
+    const saved = localStorage.getItem(KEY_VENDORS);
+    if (saved) {
+      try {
+        vendors = JSON.parse(saved);
+        mostrarLista();
+        return;
+      } catch(e) {}
+    }
+    // Hay usuario pero no PDFs → ir a carga
+    mostrarCarga();
+    return;
+  }
+  // Sin usuario → login
+  showScreen('sLogin');
+})();
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────
+document.getElementById('loginInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmarLogin();
+});
+
+function confirmarLogin() {
+  const val = document.getElementById('loginInput').value.trim();
+  if (!val) { document.getElementById('loginInput').focus(); return; }
+  usuarioActual = val;
+  localStorage.setItem(KEY_USER, val);
+  // ¿Hay PDFs guardados?
+  const saved = localStorage.getItem(KEY_VENDORS);
+  if (saved) {
+    try { vendors = JSON.parse(saved); mostrarLista(); return; } catch(e) {}
+  }
+  mostrarCarga();
+}
+
+function cambiarUsuario() {
+  synth.cancel();
+  localStorage.removeItem(KEY_USER);
+  usuarioActual = '';
+  document.getElementById('loginInput').value = '';
+  showScreen('sLogin');
+}
+
+// ── CARGA ──────────────────────────────────────────────────────────────────
+function mostrarCarga() {
+  document.getElementById('cargaUser').textContent = usuarioActual;
+  // Mostrar link guardado
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY_DRIVE) || '{}');
+    if (saved.link) {
+      document.getElementById('driveInput').value = saved.link;
+      document.getElementById('driveSavedFecha').textContent = saved.fecha || '—';
+      document.getElementById('driveSaved').style.display = 'flex';
+    }
+  } catch(e) {}
+  showScreen('sCarga');
+}
+
+// Drive
+function extraerFolderId(link) {
+  const m = link.match(/\/folders\/([a-zA-Z0-9_-]{10,})/);
+  return m ? m[1] : null;
+}
+
+async function cargarDesdeDrive() {
+  const link = document.getElementById('driveInput').value.trim();
+  if (!link) { alert('Pegá el link de la carpeta de Drive.'); return; }
+  const folderId = extraerFolderId(link);
+  if (!folderId) { alert('Link inválido. Copiá el link completo de la carpeta.'); return; }
+
+  const btn = document.getElementById('driveBtnCargar');
+  btn.disabled = true; btn.textContent = '…';
+  showProgress(true); updateProgressText('Conectando con Drive…');
+
+  try {
+    const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='application/pdf'+and+trashed=false&fields=files(id,name)&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`;
+    const res  = await fetch(apiUrl);
+    const data = await res.json();
+
+    if (data.error || !data.files) {
+      alert('No se pudo leer la carpeta. Verificá que esté compartida como "Cualquiera con el link puede ver".');
+      btn.disabled=false; btn.textContent='Cargar'; showProgress(false); return;
+    }
+
+    const files = data.files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (!files.length) { alert('No se encontraron PDFs en la carpeta.'); btn.disabled=false; btn.textContent='Cargar'; showProgress(false); return; }
+
+    // Guardar link
+    const hoy = new Date().toLocaleDateString('es-AR');
+    localStorage.setItem(KEY_DRIVE, JSON.stringify({ link, fecha: hoy }));
+    document.getElementById('driveSavedFecha').textContent = hoy;
+    document.getElementById('driveSaved').style.display = 'flex';
+
+    const pdfBuffers = [];
+    for (let i = 0; i < files.length; i++) {
+      updateProgress(i, files.length, files[i].name);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}?alt=media&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`);
+      if (!r.ok) continue;
+      pdfBuffers.push({ name: files[i].name, buffer: await r.arrayBuffer() });
+    }
+    btn.disabled=false; btn.textContent='Cargar';
+    await procesarBuffers(pdfBuffers);
+  } catch(err) {
+    alert('Error al conectar con Drive. Usá el método manual.');
+    btn.disabled=false; btn.textContent='Cargar'; showProgress(false);
+  }
+}
+
+function usarLinkGuardado() { cargarDesdeDrive(); }
+
+// Upload manual
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); handleFiles([...e.dataTransfer.files]); });
+document.getElementById('fileInput').addEventListener('change', e => { handleFiles([...e.target.files]); });
+
+async function handleFiles(files) {
+  if (!files.length) return;
+  showProgress(true);
+  let pdfBuffers = [];
+  for (const file of files) {
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      const zip = await JSZip.loadAsync(file);
+      const entries = Object.values(zip.files).filter(f => f.name.toLowerCase().endsWith('.pdf') && !f.dir);
+      for (const e of entries) pdfBuffers.push({ name: e.name, buffer: await e.async('arraybuffer') });
+    } else if (file.name.toLowerCase().endsWith('.pdf')) {
+      pdfBuffers.push({ name: file.name, buffer: await file.arrayBuffer() });
+    }
+  }
+  if (!pdfBuffers.length) { alert('No se encontraron PDFs.'); showProgress(false); return; }
+  await procesarBuffers(pdfBuffers);
+}
+
+async function procesarBuffers(pdfBuffers) {
+  showProgress(true);
+  vendors = [];
+  for (let i = 0; i < pdfBuffers.length; i++) {
+    updateProgress(i, pdfBuffers.length, pdfBuffers[i].name);
+    try {
+      const txt  = await pdfToText(pdfBuffers[i].buffer);
+      const data = parsearTexto(txt);
+      if (data.familias.length) vendors.push({ id: i, ...data });
+    } catch(e) { console.warn('Error:', pdfBuffers[i].name, e); }
+  }
+  vendors.sort((a,b) => (parseInt(a.zona)||9999) - (parseInt(b.zona)||9999));
+  showProgress(false);
+  if (!vendors.length) { alert('No se pudieron leer los PDFs.'); return; }
+  // Guardar estructura (sin checkState — ese es por usuario)
+  localStorage.setItem(KEY_VENDORS, JSON.stringify(vendors));
+  mostrarLista();
+}
+
+async function pdfToText(buffer) {
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let txt = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const pg = await pdf.getPage(i);
+    const ct = await pg.getTextContent();
+    txt += ct.items.map(it => it.str).join(' ') + '\n';
+  }
+  return txt;
+}
+
+function showProgress(show) { document.getElementById('progressWrap').style.display = show ? 'block' : 'none'; }
+function updateProgress(i, total, name) {
+  document.getElementById('progressFill').style.width = Math.round(i/total*100) + '%';
+  document.getElementById('progressText').textContent = `${i+1}/${total} — ${name.split('/').pop().substring(0,30)}`;
+}
+function updateProgressText(txt) { document.getElementById('progressText').textContent = txt; }
+
+// ── PARSEO ─────────────────────────────────────────────────────────────────
+function parsearTexto(text) {
+  const zona        = (text.match(/ZONA\s+(\d+)/i)         ||[])[1] || '—';
+  const fecha       = (text.match(/Fecha:\s*([\d\/]+)/i)    ||[])[1] || '—';
+  const consolMatch = text.match(/Consolidado[:\s]+(\d+)/i);
+  const consolidado = consolMatch ? consolMatch[1] : '—';
+  const vendMatch   = text.match(/Repartidor\s*\[\d+\]\s*([^\n\r]+?)(?:\s*Direccion|\s*Fecha)/i)
+                   || text.match(/VEND\s+\d+\s+(\w+)/i);
+  let vendedor = vendMatch ? vendMatch[1].trim().replace(/\s+/g,' ') : '—';
+  vendedor = vendedor.replace(/\s*(Direccion|Fecha|Consolidado).*/i, '').trim();
+
+  const familias   = [];
+  const famMatches = [...text.matchAll(/Familia\s*\[(\d+)\]\s+([A-ZÁÉÍÓÚÑÜ \/\-\.]+)/gi)];
+  for (let i = 0; i < famMatches.length; i++) {
+    const fm     = famMatches[i];
+    const codigo = fm[1];
+    const nombre = fm[2].trim().replace(/\s+/g,' ');
+    const start  = fm.index + fm[0].length;
+    const end    = i+1 < famMatches.length ? famMatches[i+1].index : text.length;
+    const bloque = text.slice(start, end);
+    const items  = [];
+    const rx     = /(\d{5})\s+(.+?)\s+(\d+)[,.](\d+)/g;
+    let m;
+    while ((m = rx.exec(bloque)) !== null) {
+      const desc = m[2].trim().replace(/\s+/g,' ');
+      if (/Repartidor|Direccion|Pagina|Comprobante|LA DISTRIBUCIONES/i.test(desc)) continue;
+      items.push({ codigo: m[1], desc, qty: parseInt(m[3]) });
+    }
+    if (items.length) familias.push({ codigo, nombre, items });
+  }
+  return { zona, fecha, consolidado, vendedor, familias };
+}
+
+// ── PROGRESO POR USUARIO ───────────────────────────────────────────────────
+function getCheckState(vendId) {
+  try {
+    const prog = JSON.parse(localStorage.getItem(KEY_PROGRESS(usuarioActual)) || '{}');
+    return prog[vendId] || {};
+  } catch(e) { return {}; }
+}
+
+function saveCheckState(vendId, checkState) {
+  try {
+    const prog = JSON.parse(localStorage.getItem(KEY_PROGRESS(usuarioActual)) || '{}');
+    prog[vendId] = checkState;
+    localStorage.setItem(KEY_PROGRESS(usuarioActual), JSON.stringify(prog));
+  } catch(e) {}
+}
+
+// ── LISTA ──────────────────────────────────────────────────────────────────
+function mostrarLista() {
+  synth.cancel(); vozActiva = false;
+  document.getElementById('listUser').textContent = usuarioActual;
+  showScreen('sList');
+  renderDaySummary();
+  renderVendors();
+}
+
+function getProgress(v) {
+  const cs    = getCheckState(v.id);
+  const total = v.familias.reduce((s,f) => s+f.items.length, 0);
+  const done  = v.familias.reduce((s,f,fi) => s+f.items.filter((_,ii) => cs[`${fi}-${ii}`]).length, 0);
+  return { done, total, pct: total ? Math.round(done/total*100) : 0 };
+}
+function isDone(v)       { const p = getProgress(v); return p.total > 0 && p.done === p.total; }
+function isInProgress(v) { const p = getProgress(v); return p.done > 0 && !isDone(v); }
+
+function renderDaySummary() {
+  const total  = vendors.length;
+  const done   = vendors.filter(v => isDone(v)).length;
+  const inProg = vendors.filter(v => isInProgress(v)).length;
+  const pend   = total - done - inProg;
+  document.getElementById('daySummary').innerHTML = `
+    <div class="day-stat"><span class="ds-num">${total}</span><span class="ds-lbl">Total</span></div>
+    <div class="day-stat ds-done"><span class="ds-num">${done}</span><span class="ds-lbl">Listos</span></div>
+    <div class="day-stat ds-prog"><span class="ds-num">${inProg}</span><span class="ds-lbl">En curso</span></div>
+    <div class="day-stat"><span class="ds-num" style="color:var(--muted)">${pend}</span><span class="ds-lbl">Pendientes</span></div>
+  `;
+}
+
+function setFilter(mode) {
+  filterMode = mode;
+  ['All','Pend','Prog','Done'].forEach(f => {
+    const el = document.getElementById('f'+f);
+    if (el) el.classList.toggle('active', f.toLowerCase() === mode);
+  });
+  renderVendors();
+}
+
+function renderVendors() {
+  const list = document.getElementById('vendorsList');
+  list.innerHTML = '';
+  const filtered = vendors.filter(v => {
+    if (filterMode === 'done') return isDone(v);
+    if (filterMode === 'prog') return isInProgress(v);
+    if (filterMode === 'pend') return !isDone(v) && !isInProgress(v);
+    return true;
+  });
+  if (!filtered.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--muted)">Sin vendedores</div>`;
+    return;
+  }
+  for (const v of filtered) {
+    const done   = isDone(v);
+    const inProg = isInProgress(v);
+    const prog   = getProgress(v);
+    const card   = document.createElement('div');
+    card.className = `vendor-card${done?' done':inProg?' in-progress':''}`;
+    card.innerHTML = `
+      <div class="vc-main">
+        <div class="vc-status">${done?'✅':inProg?'⏳':'📦'}</div>
+        <div class="vc-info">
+          <div class="vc-name">${v.vendedor}</div>
+          <div class="vc-tags">
+            <span class="vc-tag zona">ZONA ${v.zona}</span>
+            <span class="vc-tag consol">CONS. ${v.consolidado}</span>
+            <span class="vc-tag">${v.familias.length} fam · ${prog.total} art.</span>
+          </div>
+        </div>
+        <div class="vc-arrow">${done?'✓':'›'}</div>
+      </div>
+      <div class="vc-progress">
+        <div class="vc-prog-row">
+          <div class="vc-prog-bar"><div class="vc-prog-fill" style="width:${prog.pct}%"></div></div>
+          <div class="vc-prog-num">${prog.done}/${prog.total}</div>
+        </div>
+      </div>`;
+    card.onclick = () => abrirVendedor(v.id);
+    list.appendChild(card);
+  }
+}
+
+// ── ARMADO ─────────────────────────────────────────────────────────────────
+let checkStateCurrent = {};  // checkState activo en memoria para el vendor actual
+
+function abrirVendedor(id) {
+  currentVend       = vendors.find(v => v.id === id);
+  currentFam        = 0;
+  currentItem       = 0;
+  checkStateCurrent = getCheckState(id);
+
+  // Arrancar en la primera familia/ítem incompleto
+  outer: for (let fi = 0; fi < currentVend.familias.length; fi++) {
+    const fam = currentVend.familias[fi];
+    for (let ii = 0; ii < fam.items.length; ii++) {
+      if (!checkStateCurrent[`${fi}-${ii}`]) { currentFam = fi; currentItem = ii; break outer; }
+    }
+  }
+
+  document.getElementById('armVendName').textContent = currentVend.vendedor;
+  document.getElementById('armZona').textContent     = `ZONA ${currentVend.zona}`;
+
+  vozActiva = false;
+  document.getElementById('vozBtn').className = 'voz-btn pausado';
+  document.getElementById('vozTexto').textContent = 'Tocá 🔊 para activar el dictado';
+  document.getElementById('vozTexto').classList.remove('leyendo');
+
+  showScreen('sArmado');
+  cerrarOverlay();
+  irFam(currentFam);
+  actualizarGlobal();
+}
+
+function irFam(idx) {
+  if (!currentVend) return;
+  if (idx < 0 || idx >= currentVend.familias.length) return;
+  currentFam  = idx;
+  currentItem = siguienteLibre(0) ?? 0;
+  cerrarOverlay();
+  renderFam();
+  if (vozActiva) {
+    const fam = currentVend.familias[currentFam];
+    hablar(`Familia ${fam.nombre}`, () => setTimeout(() => leerActual(), 300));
+  }
+}
+
+function renderFam() {
+  const v   = currentVend;
+  const fam = v.familias[currentFam];
+  document.getElementById('armFamCounter').textContent = `Familia ${currentFam+1} de ${v.familias.length}`;
+  document.getElementById('armFamName').textContent    = fam.nombre;
+  document.getElementById('armFamCode').textContent    = `[${fam.codigo}]`;
+  document.getElementById('btnPrev').disabled = currentFam === 0;
+  document.getElementById('btnNext').disabled = currentFam === v.familias.length - 1;
+
+  const scroll = document.getElementById('armItems');
+  scroll.innerHTML = '';
+  fam.items.forEach((it, ii) => {
+    const key  = `${currentFam}-${ii}`;
+    const chkd = !!checkStateCurrent[key];
+    const card = document.createElement('div');
+    card.className = `item-card${chkd?' checked':''}${ii===currentItem?' active-item':''}`;
+    card.id = `ic-${currentFam}-${ii}`;
+    card.innerHTML = `
+      <div class="item-chk">${chkd?'✓':''}</div>
+      <div class="item-info">
+        <div class="item-desc">${it.desc}</div>
+        <div class="item-cod">${it.codigo}</div>
+      </div>
+      <div class="item-qty">${it.qty}</div>`;
+    card.onclick = () => { currentItem = ii; toggleItem(key, ii); };
+    scroll.appendChild(card);
+  });
+
+  scroll.scrollTop = 0;
+  actualizarFamProg();
+  scrollToItem(currentItem);
+}
+
+function toggleItem(key, ii) {
+  const fam = currentVend.familias[currentFam];
+  checkStateCurrent[key] = !checkStateCurrent[key];
+  saveCheckState(currentVend.id, checkStateCurrent);
+  actualizarCardUI(key, ii, checkStateCurrent[key]);
+  actualizarFamProg();
+  actualizarGlobal();
+  resaltarItem(ii);
+
+  const done = fam.items.filter((_,i) => checkStateCurrent[`${currentFam}-${i}`]).length;
+  if (done === fam.items.length) mostrarOverlay(fam);
+  else if (vozActiva && checkStateCurrent[key]) {
+    const sig = siguienteLibre(ii + 1);
+    if (sig !== null) { currentItem = sig; setTimeout(() => leerActual(), 400); }
+  }
+}
+
+function actualizarFamProg() {
+  const fam   = currentVend.familias[currentFam];
+  const total = fam.items.length;
+  const done  = fam.items.filter((_,i) => checkStateCurrent[`${currentFam}-${i}`]).length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+  document.getElementById('armFamFill').style.width = `${pct}%`;
+  document.getElementById('armFamLbl').textContent  = `${done}/${total}`;
+}
+
+function actualizarGlobal() {
+  const total = currentVend.familias.reduce((s,f) => s+f.items.length, 0);
+  const done  = currentVend.familias.reduce((s,f,fi) => s+f.items.filter((_,ii) => checkStateCurrent[`${fi}-${ii}`]).length, 0);
+  const pct   = total ? Math.round(done/total*100) : 0;
+  document.getElementById('agpFill').style.width  = `${pct}%`;
+  document.getElementById('agpPct').textContent   = `${pct}%`;
+  document.getElementById('agpLabel').textContent = `${done} de ${total} artículos`;
+}
+
+function actualizarCardUI(key, idx, checked) {
+  const card = document.getElementById(`ic-${currentFam}-${idx}`);
+  const chk  = card?.querySelector('.item-chk');
+  if (!card) return;
+  if (checked) { card.classList.add('checked'); if(chk) chk.textContent='✓'; }
+  else         { card.classList.remove('checked'); if(chk) chk.textContent=''; }
+}
+
+function resaltarItem(idx) {
+  document.querySelectorAll('.item-card').forEach((c,i) => c.classList.toggle('active-item', i === idx));
+  scrollToItem(idx);
+}
+
+function scrollToItem(idx) {
+  const card = document.getElementById(`ic-${currentFam}-${idx}`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function siguienteLibre(desde) {
+  const fam = currentVend.familias[currentFam];
+  for (let i = desde; i < fam.items.length; i++) {
+    if (!checkStateCurrent[`${currentFam}-${i}`]) return i;
+  }
+  return null;
+}
+
+function navegarItem(dir) {
+  if (!currentVend) return;
+  const fam = currentVend.familias[currentFam];
+  if (dir === 1) {
+    const key = `${currentFam}-${currentItem}`;
+    if (!checkStateCurrent[key]) {
+      checkStateCurrent[key] = true;
+      saveCheckState(currentVend.id, checkStateCurrent);
+      actualizarCardUI(key, currentItem, true);
+      actualizarFamProg(); actualizarGlobal();
+    }
+    const sig = siguienteLibre(currentItem + 1);
+    if (sig !== null) { currentItem = sig; leerActual(); scrollToItem(currentItem); }
+    else mostrarOverlay(fam);
+  } else {
+    if (currentItem > 0) {
+      currentItem--;
+      const key = `${currentFam}-${currentItem}`;
+      if (checkStateCurrent[key]) {
+        checkStateCurrent[key] = false;
+        saveCheckState(currentVend.id, checkStateCurrent);
+        actualizarCardUI(key, currentItem, false);
+        actualizarFamProg(); actualizarGlobal();
+      }
+      leerActual(); scrollToItem(currentItem);
+    } else hablar('Primer artículo de la familia');
+  }
+}
+
+// ── OVERLAY ─────────────────────────────────────────────────────────────────
+function mostrarOverlay(fam) {
+  if (vozActiva) hablar(`${fam.nombre} completa`);
+  document.getElementById('doFamName').textContent = fam.nombre;
+  const isLast = currentFam === currentVend.familias.length - 1;
+  document.getElementById('doNextBtn').textContent = isLast ? '🎉 Ver resumen' : 'Siguiente familia →';
+  document.getElementById('doneOverlay').classList.add('show');
+}
+
+function cerrarOverlay() { document.getElementById('doneOverlay').classList.remove('show'); }
+
+function avanzarFam() {
+  cerrarOverlay();
+  if (currentFam === currentVend.familias.length - 1) mostrarFinalVendedor();
+  else irFam(currentFam + 1);
+}
+
+function deshacerUltimo() {
+  const fam = currentVend.familias[currentFam];
+  for (let i = fam.items.length - 1; i >= 0; i--) {
+    const key = `${currentFam}-${i}`;
+    if (checkStateCurrent[key]) {
+      checkStateCurrent[key] = false;
+      saveCheckState(currentVend.id, checkStateCurrent);
+      currentItem = i;
+      cerrarOverlay(); renderFam(); actualizarGlobal();
+      if (vozActiva) leerActual();
+      return;
+    }
+  }
+  cerrarOverlay();
+}
+
+// ── FINAL VENDEDOR ──────────────────────────────────────────────────────────
+function mostrarFinalVendedor() {
+  synth.cancel();
+  if (vozActiva) setTimeout(() => hablar(`Armado completo. ${currentVend.vendedor}, zona ${currentVend.zona}`), 200);
+  const prog = getProgress(currentVend);
+  document.getElementById('vfSub').textContent  = `${currentVend.vendedor} · ZONA ${currentVend.zona}`;
+  document.getElementById('vfStats').innerHTML  = `<strong>${currentVend.familias.length}</strong> familias · <strong>${prog.total}</strong> artículos`;
+  showScreen('sVendFinal');
+}
+
+function volverALista() {
+  synth.cancel(); cerrarOverlay(); mostrarLista();
+}
+
+// ── NUEVO DÍA ───────────────────────────────────────────────────────────────
+function mostrarModalNuevoDia() { document.getElementById('modalNuevoDia').classList.add('show'); }
+function cerrarModal()          { document.getElementById('modalNuevoDia').classList.remove('show'); }
+
+function ejecutarNuevoDia() {
+  // Borrar PDFs guardados y progreso de TODOS los usuarios
+  const keys = Object.keys(localStorage);
+  keys.forEach(k => {
+    if (k === KEY_VENDORS || k.startsWith('armado_prog_')) {
+      localStorage.removeItem(k);
+    }
+  });
+  vendors = [];
+  cerrarModal();
+  mostrarCarga();
+}
+
+// ── VOZ ─────────────────────────────────────────────────────────────────────
+const synth = window.speechSynthesis;
+let vozVoice = null;
+function initVoz() {
+  const cargar = () => {
+    const voices = synth.getVoices();
+    vozVoice = voices.find(v => v.lang.startsWith('es') && v.localService)
+            || voices.find(v => v.lang.startsWith('es'))
+            || voices[0] || null;
+  };
+  cargar();
+  if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = cargar;
+}
+initVoz();
+
+function hablar(texto, onEnd) {
+  if (!vozActiva) return;
+  synth.cancel();
+  const utt = new SpeechSynthesisUtterance(texto);
+  utt.lang = 'es-AR'; utt.rate = 0.95; utt.pitch = 1;
+  if (vozVoice) utt.voice = vozVoice;
+  const el = document.getElementById('vozTexto');
+  if (el) { el.textContent = texto; el.classList.add('leyendo'); }
+  utt.onend = () => { if (el) el.classList.remove('leyendo'); if (onEnd) onEnd(); };
+  synth.speak(utt);
+}
+
+function leerActual() {
+  if (!currentVend) return;
+  const fam = currentVend.familias[currentFam];
+  const it  = fam?.items[currentItem];
+  if (!it) return;
+  const key    = `${currentFam}-${currentItem}`;
+  const estado = checkStateCurrent[key] ? 'ya cargado, ' : '';
+  hablar(`${estado}${limpiarDesc(it.desc)}, cantidad ${it.qty}`);
+  resaltarItem(currentItem);
+}
+
+function limpiarDesc(desc) {
+  return desc.replace(/\bX\s*(\d+)\b/gi,' por $1').replace(/\bx\b/gi,'por').replace(/\([\d]+\)/g,'').replace(/\s+/g,' ').trim();
+}
+
+function toggleVoz() {
+  vozActiva = !vozActiva;
+  const btn = document.getElementById('vozBtn');
+  const txt = document.getElementById('vozTexto');
+  if (vozActiva) { btn.className='voz-btn hablando'; leerActual(); }
+  else           { synth.cancel(); btn.className='voz-btn pausado'; if(txt){txt.textContent='Dictado pausado';txt.classList.remove('leyendo');} }
+}
+
+// ── UTILS ───────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
