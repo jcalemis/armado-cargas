@@ -168,6 +168,18 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .vc-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; padding: 2px 7px; border-radius: 3px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
 .vc-tag.zona   { color: var(--accent); border-color: rgba(232,160,32,0.4); background: rgba(232,160,32,0.08); }
 .vc-tag.consol { color: #7aa4cc; border-color: rgba(122,164,204,0.4); background: rgba(122,164,204,0.08); }
+.vc-tag.camara { color: #38bdf8; border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); font-weight: 700; }
+.vc-tag.farma  { color: #f472b6; border-color: rgba(244,114,182,0.4); background: rgba(244,114,182,0.08); font-weight: 700; }
+.vc-alertas { display: flex; gap: 6px; padding: 0 16px 10px; flex-wrap: wrap; }
+.alerta-badge {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 700;
+  border: 1px solid; animation: alertaPulse 2s infinite;
+}
+.alerta-camara { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.5); color: #38bdf8; }
+.alerta-farma  { background: rgba(244,114,182,0.1); border-color: rgba(244,114,182,0.5); color: #f472b6; }
+@keyframes alertaPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 .vc-arrow { color: var(--muted); font-size: 1.2rem; flex-shrink: 0; }
 .vendor-card.done .vc-arrow { color: var(--green); }
 .vc-progress { padding: 0 16px 12px; }
@@ -215,6 +227,14 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .arm-fam-prog-bar { flex: 1; background: var(--border); border-radius: 4px; height: 7px; overflow: hidden; }
 .arm-fam-prog-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s; }
 .arm-fam-prog-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); min-width: 42px; text-align: right; }
+.btn-tildar-todos {
+  background: var(--green-dk); color: #fff; border: none; border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700;
+  padding: 5px 10px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.btn-tildar-todos:hover { opacity: 0.85; }
+.btn-tildar-todos.desmarcar { background: var(--border); color: var(--muted); }
 
 .arm-items { flex: 1; overflow-y: auto; padding: 8px 16px 16px; -webkit-overflow-scrolling: touch; }
 .item-card { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; transition: all 0.2s; user-select: none; }
@@ -375,16 +395,10 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
       <div class="arm-fam-prog-row">
         <div class="arm-fam-prog-bar"><div class="arm-fam-prog-fill" id="armFamFill" style="width:0%"></div></div>
         <div class="arm-fam-prog-lbl" id="armFamLbl">0/0</div>
+        <button class="btn-tildar-todos" id="btnTildarTodos" onclick="tildarTodos()">✓ Todos</button>
       </div>
     </div>
     <div class="arm-items" id="armItems"></div>
-    <div class="done-overlay" id="doneOverlay">
-      <div class="do-icon">✅</div>
-      <div class="do-title">¡FAMILIA LISTA!</div>
-      <div class="do-sub" id="doFamName"></div>
-      <button class="do-next" id="doNextBtn" onclick="avanzarFam()">Siguiente familia →</button>
-      <button class="do-undo" onclick="deshacerUltimo()">↩ Deshacer último</button>
-    </div>
   </div>
   <div class="voz-controles">
     <button class="vc-btn vc-prev" onclick="navegarItem(-1)">⬅️<span>Anterior</span></button>
@@ -658,7 +672,21 @@ function saveCheckState(vendId, checkState) {
   } catch(e) {}
 }
 
-// ── LISTA ──────────────────────────────────────────────────────────────────
+// ── ALERTAS ESPECIALES ─────────────────────────────────────────────────────
+const PALABRAS_CAMARA = [
+  'queso','jamon','jamón','paleta','mortadela','salamin','salamín',
+  'bologna','bologne','congelado','fiambre','barra santa','cremoso'
+];
+
+function detectarAlertas(v) {
+  const texto = v.familias
+    .flatMap(f => f.items.map(it => it.desc.toLowerCase()))
+    .join(' ');
+  return {
+    camara: PALABRAS_CAMARA.some(p => texto.includes(p)),
+    farma:  texto.includes('venta farmacia')
+  };
+}
 function mostrarLista() {
   synth.cancel(); vozActiva = false;
   document.getElementById('listUser').textContent = usuarioActual;
@@ -712,11 +740,19 @@ function renderVendors() {
     return;
   }
   for (const v of filtered) {
-    const done   = isDone(v);
-    const inProg = isInProgress(v);
-    const prog   = getProgress(v);
-    const card   = document.createElement('div');
+    const done    = isDone(v);
+    const inProg  = isInProgress(v);
+    const prog    = getProgress(v);
+    const alertas = detectarAlertas(v);
+    const card    = document.createElement('div');
     card.className = `vendor-card${done?' done':inProg?' in-progress':''}`;
+
+    const alertasHTML = (alertas.camara || alertas.farma) ? `
+      <div class="vc-alertas">
+        ${alertas.camara ? '<div class="alerta-badge alerta-camara">❄️ Cámara fría</div>' : ''}
+        ${alertas.farma  ? '<div class="alerta-badge alerta-farma">💊 Farmacia</div>' : ''}
+      </div>` : '';
+
     card.innerHTML = `
       <div class="vc-main">
         <div class="vc-status">${done?'✅':inProg?'⏳':'📦'}</div>
@@ -730,6 +766,7 @@ function renderVendors() {
         </div>
         <div class="vc-arrow">${done?'✓':'›'}</div>
       </div>
+      ${alertasHTML}
       <div class="vc-progress">
         <div class="vc-prog-row">
           <div class="vc-prog-bar"><div class="vc-prog-fill" style="width:${prog.pct}%"></div></div>
@@ -767,7 +804,6 @@ function abrirVendedor(id) {
   document.getElementById('vozTexto').classList.remove('leyendo');
 
   showScreen('sArmado');
-  cerrarOverlay();
   irFam(currentFam);
   actualizarGlobal();
 }
@@ -777,7 +813,6 @@ function irFam(idx) {
   if (idx < 0 || idx >= currentVend.familias.length) return;
   currentFam  = idx;
   currentItem = siguienteLibre(0) ?? 0;
-  cerrarOverlay();
   renderFam();
   if (vozActiva) {
     const fam = currentVend.familias[currentFam];
@@ -815,6 +850,7 @@ function renderFam() {
 
   scroll.scrollTop = 0;
   actualizarFamProg();
+  actualizarBtnTildar();
   scrollToItem(currentItem);
 }
 
@@ -828,11 +864,51 @@ function toggleItem(key, ii) {
   resaltarItem(ii);
 
   const done = fam.items.filter((_,i) => checkStateCurrent[`${currentFam}-${i}`]).length;
-  if (done === fam.items.length) mostrarOverlay(fam);
-  else if (vozActiva && checkStateCurrent[key]) {
+  actualizarBtnTildar();
+  if (done === fam.items.length) {
+    if (vozActiva) hablar(`${fam.nombre} completa`);
+    setTimeout(() => {
+      if (currentFam < currentVend.familias.length - 1) irFam(currentFam + 1);
+      else mostrarFinalVendedor();
+    }, 600);
+  } else if (vozActiva && checkStateCurrent[key]) {
     const sig = siguienteLibre(ii + 1);
     if (sig !== null) { currentItem = sig; setTimeout(() => leerActual(), 400); }
   }
+}
+
+function tildarTodos() {
+  const fam     = currentVend.familias[currentFam];
+  const allDone = fam.items.every((_,i) => checkStateCurrent[`${currentFam}-${i}`]);
+
+  for (let i = 0; i < fam.items.length; i++) {
+    const key = `${currentFam}-${i}`;
+    checkStateCurrent[key] = !allDone;
+    actualizarCardUI(key, i, !allDone);
+  }
+  saveCheckState(currentVend.id, checkStateCurrent);
+  actualizarFamProg();
+  actualizarGlobal();
+  actualizarBtnTildar();
+
+  // Si se tildaron todos → pasar a la siguiente familia automáticamente
+  if (!allDone) {
+    if (vozActiva) hablar(`${fam.nombre} completa`);
+    setTimeout(() => {
+      if (currentFam < currentVend.familias.length - 1) irFam(currentFam + 1);
+      else mostrarFinalVendedor();
+    }, 600);
+  }
+}
+
+function actualizarBtnTildar() {
+  const fam = currentVend?.familias[currentFam];
+  if (!fam) return;
+  const allDone = fam.items.every((_,i) => checkStateCurrent[`${currentFam}-${i}`]);
+  const btn = document.getElementById('btnTildarTodos');
+  if (!btn) return;
+  if (allDone) { btn.textContent = '↩ Desmarcar'; btn.classList.add('desmarcar'); }
+  else         { btn.textContent = '✓ Todos';     btn.classList.remove('desmarcar'); }
 }
 
 function actualizarFamProg() {
@@ -908,23 +984,6 @@ function navegarItem(dir) {
   }
 }
 
-// ── OVERLAY ─────────────────────────────────────────────────────────────────
-function mostrarOverlay(fam) {
-  if (vozActiva) hablar(`${fam.nombre} completa`);
-  document.getElementById('doFamName').textContent = fam.nombre;
-  const isLast = currentFam === currentVend.familias.length - 1;
-  document.getElementById('doNextBtn').textContent = isLast ? '🎉 Ver resumen' : 'Siguiente familia →';
-  document.getElementById('doneOverlay').classList.add('show');
-}
-
-function cerrarOverlay() { document.getElementById('doneOverlay').classList.remove('show'); }
-
-function avanzarFam() {
-  cerrarOverlay();
-  if (currentFam === currentVend.familias.length - 1) mostrarFinalVendedor();
-  else irFam(currentFam + 1);
-}
-
 function deshacerUltimo() {
   const fam = currentVend.familias[currentFam];
   for (let i = fam.items.length - 1; i >= 0; i--) {
@@ -933,12 +992,11 @@ function deshacerUltimo() {
       checkStateCurrent[key] = false;
       saveCheckState(currentVend.id, checkStateCurrent);
       currentItem = i;
-      cerrarOverlay(); renderFam(); actualizarGlobal();
+      renderFam(); actualizarGlobal();
       if (vozActiva) leerActual();
       return;
     }
   }
-  cerrarOverlay();
 }
 
 // ── FINAL VENDEDOR ──────────────────────────────────────────────────────────
@@ -952,7 +1010,7 @@ function mostrarFinalVendedor() {
 }
 
 function volverALista() {
-  synth.cancel(); cerrarOverlay(); mostrarLista();
+  synth.cancel(); mostrarLista();
 }
 
 // ── NUEVO DÍA ───────────────────────────────────────────────────────────────
@@ -1011,7 +1069,35 @@ function leerActual() {
 }
 
 function limpiarDesc(desc) {
-  return desc.replace(/\bX\s*(\d+)\b/gi,' por $1').replace(/\bx\b/gi,'por').replace(/\([\d]+\)/g,'').replace(/\s+/g,' ').trim();
+  return desc
+    .replace(/\bX\s*(\d+)\b/gi, ' por $1')
+    .replace(/\bx\b/gi, 'por')
+    .replace(/\bGRS?\b/gi, 'gramos')
+    .replace(/\bKGS?\b/gi, 'kilos')
+    .replace(/\bMLS?\b/gi, 'mililitros')
+    .replace(/\bLTS?\b/gi, 'litros')
+    .replace(/\bCC\b/gi, 'centímetros cúbicos')
+    .replace(/\bUNID(ADES?)?\b/gi, 'unidades')
+    .replace(/\bCPS?\b/gi, 'cápsulas')
+    .replace(/\bCOMP\b/gi, 'comprimidos')
+    .replace(/\bSAQ\b/gi, 'saquito')
+    .replace(/\bSTA\b/gi, 'Santa')
+    .replace(/\bINST\b/gi, 'instantáneo')
+    .replace(/\bESPUMA\b/gi, 'espuma')
+    .replace(/\bFRASCO\b/gi, 'frasco')
+    .replace(/\bTRIPACK\b/gi, 'tripack')
+    .replace(/\bPACK\b/gi, 'pack')
+    .replace(/\bTETRA\b/gi, 'tetra')
+    .replace(/\bEFER\b/gi, 'efervescente')
+    .replace(/\bREC\b/gi, 'recubierto')
+    .replace(/\bRAP\b/gi, 'rápida')
+    .replace(/\bACC\b/gi, 'acción')
+    .replace(/\bANTIACIDO\b/gi, 'antiácido')
+    .replace(/\bANALGE\b/gi, 'analgésico')
+    .replace(/\bGRANULADO\b/gi, 'granulado')
+    .replace(/\([^)]{1,8}\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function toggleVoz() {
