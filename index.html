@@ -434,7 +434,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // ── KEYS DE STORAGE ────────────────────────────────────────────────────────
 const KEY_USER      = 'armado_usuario';
 const KEY_VENDORS   = 'armado_vendors_data';   // JSON de todos los vendors (estructura)
-const KEY_PROGRESS  = (user) => `armado_prog_${user}`;  // progreso por operario
+const KEY_DATE      = 'armado_fecha_carga';    // fecha de la carga actual
+const KEY_PROGRESS  = (user) => {             // progreso por operario + por día
+  const fecha = localStorage.getItem(KEY_DATE) || 'sf';
+  return `armado_prog_${user}_${fecha}`;
+};
 const KEY_DRIVE     = 'armado_drive_link';
 
 // ── ESTADO ─────────────────────────────────────────────────────────────────
@@ -452,14 +456,19 @@ let usuarioActual = '';
   const user = localStorage.getItem(KEY_USER);
   if (user) {
     usuarioActual = user;
-    // ¿Hay PDFs del día guardados?
+    // ¿Hay PDFs del día guardados y válidos?
     const saved = localStorage.getItem(KEY_VENDORS);
     if (saved) {
       try {
-        vendors = JSON.parse(saved);
-        mostrarLista();
-        return;
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          vendors = parsed;
+          mostrarLista();
+          return;
+        }
       } catch(e) {}
+      // JSON corrupto o vacío → limpiar
+      localStorage.removeItem(KEY_VENDORS);
     }
     // Hay usuario pero no PDFs → ir a carga
     mostrarCarga();
@@ -553,9 +562,16 @@ async function cargarDesdeDrive() {
       pdfBuffers.push({ name: files[i].name, buffer: await r.arrayBuffer() });
     }
     btn.disabled=false; btn.textContent='Cargar';
+
+    if (!pdfBuffers.length) {
+      alert('No se pudo descargar ningún PDF. Verificá la conexión y los permisos de la carpeta.');
+      showProgress(false); return;
+    }
+
     await procesarBuffers(pdfBuffers);
   } catch(err) {
-    alert('Error al conectar con Drive. Usá el método manual.');
+    console.error(err);
+    alert('No se pudo conectar con Drive. Si el problema persiste, subí los PDFs manualmente con el botón de abajo.');
     btn.disabled=false; btn.textContent='Cargar'; showProgress(false);
   }
 }
@@ -594,13 +610,22 @@ async function procesarBuffers(pdfBuffers) {
     try {
       const txt  = await pdfToText(pdfBuffers[i].buffer);
       const data = parsearTexto(txt);
-      if (data.familias.length) vendors.push({ id: i, ...data });
+      if (data.familias.length) vendors.push({ 
+        id: `${data.zona}_${data.consolidado}`,
+        ...data 
+      });
     } catch(e) { console.warn('Error:', pdfBuffers[i].name, e); }
   }
   vendors.sort((a,b) => (parseInt(a.zona)||9999) - (parseInt(b.zona)||9999));
   showProgress(false);
-  if (!vendors.length) { alert('No se pudieron leer los PDFs.'); return; }
-  // Guardar estructura (sin checkState — ese es por usuario)
+  if (!vendors.length) {
+    // No avanzar — quedarse en pantalla de carga con mensaje
+    alert('No se pudieron leer los PDFs. Verificá que sean los archivos correctos del Sinergis.');
+    return;
+  }
+  // Guardar estructura y fecha de carga
+  const hoyStr = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  localStorage.setItem(KEY_DATE, hoyStr);
   localStorage.setItem(KEY_VENDORS, JSON.stringify(vendors));
   mostrarLista();
 }
@@ -644,7 +669,9 @@ function parsearTexto(text) {
     const end    = i+1 < famMatches.length ? famMatches[i+1].index : text.length;
     const bloque = text.slice(start, end);
     const items  = [];
-    const rx     = /(\d{5})\s+(.+?)\s+(\d+)[,.](\d+)/g;
+    // El Sinergis exporta cantidades siempre como N,000 o N.000
+    // Anclamos en eso para no cortar descripciones que terminan en X o número
+    const rx = /(\d{5})\s+(.+?)\s+(\d+)[,.]000/g;
     let m;
     while ((m = rx.exec(bloque)) !== null) {
       const desc = m[2].trim().replace(/\s+/g,' ');
@@ -674,8 +701,8 @@ function saveCheckState(vendId, checkState) {
 
 // ── ALERTAS ESPECIALES ─────────────────────────────────────────────────────
 const PALABRAS_CAMARA = [
-  'queso','jamon','jamón','paleta','mortadela','salamin','salamín',
-  'bologna','bologne','congelado','fiambre','barra santa','cremoso'
+  'salamin milan','salamin milán','fiambre','chipacito',
+  'queso cremoso','queso barra'
 ];
 
 function detectarAlertas(v) {
@@ -1021,7 +1048,7 @@ function ejecutarNuevoDia() {
   // Borrar PDFs guardados y progreso de TODOS los usuarios
   const keys = Object.keys(localStorage);
   keys.forEach(k => {
-    if (k === KEY_VENDORS || k.startsWith('armado_prog_')) {
+    if (k === KEY_VENDORS || k === KEY_DATE || k.startsWith('armado_prog_')) {
       localStorage.removeItem(k);
     }
   });
