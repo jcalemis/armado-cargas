@@ -557,15 +557,27 @@ async function cargarDesdeDrive() {
     const pdfBuffers = [];
     for (let i = 0; i < files.length; i++) {
       updateProgress(i, files.length, files[i].name);
-      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}?alt=media&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`);
-      if (!r.ok) continue;
-      pdfBuffers.push({ name: files[i].name, buffer: await r.arrayBuffer() });
+      try {
+        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}?alt=media&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`);
+        if (r.ok) {
+          pdfBuffers.push({ name: files[i].name, buffer: await r.arrayBuffer() });
+        }
+      } catch(e) {
+        console.warn('No se pudo descargar:', files[i].name, e);
+        // Seguir con los demás aunque falle uno
+      }
     }
     btn.disabled=false; btn.textContent='Cargar';
 
     if (!pdfBuffers.length) {
-      alert('No se pudo descargar ningún PDF. Verificá la conexión y los permisos de la carpeta.');
+      alert('No se pudo descargar ningún PDF. Verificá la conexión e intentá de nuevo.');
       showProgress(false); return;
+    }
+
+    // Si bajaron algunos pero no todos, avisar pero continuar
+    if (pdfBuffers.length < files.length) {
+      const faltaron = files.length - pdfBuffers.length;
+      alert(`Se descargaron ${pdfBuffers.length} de ${files.length} PDFs. Faltaron ${faltaron} por mala señal. Podés cargar igual y repetir después si falta algún vendedor.`);
     }
 
     await procesarBuffers(pdfBuffers);
@@ -669,14 +681,16 @@ function parsearTexto(text) {
     const end    = i+1 < famMatches.length ? famMatches[i+1].index : text.length;
     const bloque = text.slice(start, end);
     const items  = [];
-    // El Sinergis exporta cantidades siempre como N,000 o N.000
-    // Anclamos en eso para no cortar descripciones que terminan en X o número
-    const rx = /(\d{5})\s+(.+?)\s+(\d+)[,.]000/g;
+    // Sinergis exporta cantidades como N,000 (enteros) o N,XXX (por kilo como 1,885)
+    // El truco es que la cantidad siempre tiene exactamente 3 decimales
+    const rx = /(\d{5})\s+(.+?)\s+(\d+),(\d{3})(?:\s|$)/g;
     let m;
     while ((m = rx.exec(bloque)) !== null) {
       const desc = m[2].trim().replace(/\s+/g,' ');
       if (/Repartidor|Direccion|Pagina|Comprobante|LA DISTRIBUCIONES/i.test(desc)) continue;
-      items.push({ codigo: m[1], desc, qty: parseInt(m[3]) });
+      const qty = parseInt(m[3]); // parte entera
+      if (qty === 0) continue;    // ignorar si es cero
+      items.push({ codigo: m[1], desc, qty });
     }
     if (items.length) familias.push({ codigo, nombre, items });
   }
