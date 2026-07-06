@@ -6,6 +6,39 @@
 <title>Armado del Día — Los Amigos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, set, get, child } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBRGOLzyAo9KsE4QhPPwiBFusoQD_FFY14",
+    authDomain: "armadozonas.firebaseapp.com",
+    databaseURL: "https://armadozonas-default-rtdb.firebaseio.com",
+    projectId: "armadozonas",
+    storageBucket: "armadozonas.firebasestorage.app",
+    messagingSenderId: "583252861633",
+    appId: "1:583252861633:web:66d164c271e78d0f91aa40"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // Exponer funciones globales para el resto del código
+  window.fbGuardarVendedor = async (usuario, fecha, vendedorData) => {
+    try {
+      const path = `reportes/${fecha}/${usuario}/${vendedorData.id}`;
+      await set(ref(db, path), vendedorData);
+    } catch(e) { console.warn('Firebase write error:', e); }
+  };
+
+  window.fbGetReporte = async (fecha) => {
+    try {
+      const snap = await get(child(ref(db), `reportes/${fecha}`));
+      return snap.exists() ? snap.val() : null;
+    } catch(e) { console.warn('Firebase read error:', e); return null; }
+  };
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap');
 
@@ -199,6 +232,11 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .arm-back:hover { border-color: var(--accent); color: var(--accent); }
 .arm-vend-name { font-size: 0.9rem; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .arm-zona-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 700; background: rgba(232,160,32,0.12); color: var(--accent); padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
+.arm-timer {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700;
+  color: var(--green); background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+  padding: 4px 8px; border-radius: 4px; white-space: nowrap; min-width: 52px; text-align: center;
+}
 
 .arm-global-prog { padding: 10px 16px 8px; flex-shrink: 0; }
 .agp-row  { display: flex; justify-content: space-between; margin-bottom: 5px; }
@@ -276,6 +314,16 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .vf-sub   { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--muted); }
 .vf-stats { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 32px; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--muted); line-height: 2; }
 .vf-stats strong { color: var(--text); font-size: 1rem; }
+.vf-time {
+  font-family: 'IBM Plex Mono', monospace; font-size: 2.5rem; font-weight: 700;
+  color: var(--green); letter-spacing: 0.05em;
+}
+.vc-tiempo {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+  color: var(--green); background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.3); padding: 2px 7px;
+  border-radius: 3px; white-space: nowrap;
+}
 .btn-volver { padding: 18px 40px; background: var(--accent); color: #1a1814; border: none; border-radius: var(--radius); font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
 
 /* Modal nuevo día */
@@ -351,6 +399,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
     <div class="list-nav-title">📋 Armado del Día</div>
     <div class="list-user-badge" id="listUser"></div>
     <button class="btn-sm" onclick="cambiarUsuario()">👤</button>
+    <button class="btn-sm" onclick="mostrarModalSupervisor()" title="Supervisor">📊</button>
     <button class="btn-sm danger" onclick="mostrarModalNuevoDia()">🗑 Nuevo día</button>
   </div>
   <div class="day-summary" id="daySummary"></div>
@@ -369,6 +418,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
     <button class="arm-back" onclick="volverALista()">‹</button>
     <div class="arm-vend-name" id="armVendName">—</div>
     <div class="arm-zona-tag"  id="armZona">ZONA —</div>
+    <div class="arm-timer" id="armTimer">0:00</div>
   </div>
   <div class="arm-global-prog">
     <div class="agp-row">
@@ -413,7 +463,21 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   <div class="vf-title">¡ARMADO COMPLETO!</div>
   <div class="vf-sub"   id="vfSub"></div>
   <div class="vf-stats" id="vfStats"></div>
+  <div class="vf-time"  id="vfTime"></div>
   <button class="btn-volver" onclick="volverALista()">← Volver a la lista</button>
+</div>
+
+<!-- MODAL SUPERVISOR -->
+<div class="modal-overlay" id="modalSupervisor">
+  <div class="modal">
+    <h3>📊 Reporte del día</h3>
+    <p>Ingresá el PIN de supervisor para generar el reporte.</p>
+    <input class="login-input" id="supervisorPin" type="password" placeholder="PIN" maxlength="6" style="margin-bottom:12px">
+    <div class="modal-btns">
+      <button class="modal-btn modal-cancel" onclick="cerrarModalSupervisor()">Cancelar</button>
+      <button class="modal-btn modal-confirm" onclick="verificarPin()">Generar PDF</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL NUEVO DÍA -->
@@ -535,6 +599,7 @@ async function cargarDesdeDrive() {
   btn.disabled = true; btn.textContent = '…';
   showProgress(true); updateProgressText('Conectando con Drive…');
 
+  let pdfBuffers = [];
   try {
     const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='application/pdf'+and+trashed=false&fields=files(id,name)&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`;
     const res  = await fetch(apiUrl);
@@ -554,7 +619,7 @@ async function cargarDesdeDrive() {
     document.getElementById('driveSavedFecha').textContent = hoy;
     document.getElementById('driveSaved').style.display = 'flex';
 
-    const pdfBuffers = [];
+    pdfBuffers = [];
     for (let i = 0; i < files.length; i++) {
       updateProgress(i, files.length, files[i].name);
       try {
@@ -583,8 +648,15 @@ async function cargarDesdeDrive() {
     await procesarBuffers(pdfBuffers);
   } catch(err) {
     console.error(err);
-    alert('No se pudo conectar con Drive. Si el problema persiste, subí los PDFs manualmente con el botón de abajo.');
-    btn.disabled=false; btn.textContent='Cargar'; showProgress(false);
+    btn.disabled=false; btn.textContent='Cargar';
+    // Si a pesar del error hay PDFs descargados, procesarlos igual
+    if (typeof pdfBuffers !== 'undefined' && pdfBuffers.length > 0) {
+      alert(`Conexión cortada pero se descargaron ${pdfBuffers.length} PDFs. Cargando los que llegaron...`);
+      await procesarBuffers(pdfBuffers);
+    } else {
+      alert('No se pudo conectar con Drive. Intentá de nuevo o usá el método manual.');
+      showProgress(false);
+    }
   }
 }
 
@@ -794,6 +866,9 @@ function renderVendors() {
         ${alertas.farma  ? '<div class="alerta-badge alerta-farma">💊 Farmacia</div>' : ''}
       </div>` : '';
 
+    const tiempo    = getTiempoVendedor(v.id);
+    const tiempoTag = tiempo ? `<span class="vc-tiempo">⏱ ${formatTiempo(tiempo)}</span>` : '';
+
     card.innerHTML = `
       <div class="vc-main">
         <div class="vc-status">${done?'✅':inProg?'⏳':'📦'}</div>
@@ -803,6 +878,7 @@ function renderVendors() {
             <span class="vc-tag zona">ZONA ${v.zona}</span>
             <span class="vc-tag consol">CONS. ${v.consolidado}</span>
             <span class="vc-tag">${v.familias.length} fam · ${prog.total} art.</span>
+            ${tiempoTag}
           </div>
         </div>
         <div class="vc-arrow">${done?'✓':'›'}</div>
@@ -845,6 +921,7 @@ function abrirVendedor(id) {
   document.getElementById('vozTexto').classList.remove('leyendo');
 
   showScreen('sArmado');
+  iniciarTimer();
   irFam(currentFam);
   actualizarGlobal();
 }
@@ -1043,15 +1120,35 @@ function deshacerUltimo() {
 // ── FINAL VENDEDOR ──────────────────────────────────────────────────────────
 function mostrarFinalVendedor() {
   synth.cancel();
-  if (vozActiva) setTimeout(() => hablar(`Armado completo. ${currentVend.vendedor}, zona ${currentVend.zona}`), 200);
-  const prog = getProgress(currentVend);
+  detenerTimer();
+  const segs = getTiempoTotal();
+  guardarTiempoVendedor(currentVend.id, segs);
+
+  // Guardar en Firebase
+  const prog  = getProgress(currentVend);
+  const fecha = localStorage.getItem(KEY_DATE) || new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  if (window.fbGuardarVendedor) {
+    window.fbGuardarVendedor(usuarioActual, fecha, {
+      id:        currentVend.id,
+      vendedor:  currentVend.vendedor,
+      zona:      currentVend.zona,
+      articulos: prog.total,
+      tiempo:    segs,
+      hora:      new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })
+    });
+  }
+
+  if (vozActiva) setTimeout(() => hablar(`Armado completo en ${Math.floor(segs/60)} minutos`), 200);
   document.getElementById('vfSub').textContent  = `${currentVend.vendedor} · ZONA ${currentVend.zona}`;
-  document.getElementById('vfStats').innerHTML  = `<strong>${currentVend.familias.length}</strong> familias · <strong>${prog.total}</strong> artículos`;
+  document.getElementById('vfStats').innerHTML  = `<strong>${prog.total}</strong> artículos en <strong>${currentVend.familias.length}</strong> familias`;
+  document.getElementById('vfTime').textContent = formatTiempo(segs);
   showScreen('sVendFinal');
 }
 
 function volverALista() {
-  synth.cancel(); mostrarLista();
+  synth.cancel();
+  detenerTimer();
+  mostrarLista();
 }
 
 // ── NUEVO DÍA ───────────────────────────────────────────────────────────────
@@ -1062,7 +1159,7 @@ function ejecutarNuevoDia() {
   // Borrar PDFs guardados y progreso de TODOS los usuarios
   const keys = Object.keys(localStorage);
   keys.forEach(k => {
-    if (k === KEY_VENDORS || k === KEY_DATE || k.startsWith('armado_prog_')) {
+    if (k === KEY_VENDORS || k === KEY_DATE || k.startsWith('armado_prog_') || k.startsWith('armado_tiempo_')) {
       localStorage.removeItem(k);
     }
   });
@@ -1071,7 +1168,53 @@ function ejecutarNuevoDia() {
   mostrarCarga();
 }
 
-// ── VOZ ─────────────────────────────────────────────────────────────────────
+// ── TEMPORIZADOR ───────────────────────────────────────────────────────────
+let timerInterval  = null;
+let timerStart     = null;
+let timerElapsed   = 0;  // segundos acumulados (para pausas)
+
+function formatTiempo(segs) {
+  const m = Math.floor(segs / 60);
+  const s = segs % 60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function iniciarTimer() {
+  detenerTimer();
+  timerStart   = Date.now();
+  timerElapsed = 0;
+  timerInterval = setInterval(() => {
+    const segs = timerElapsed + Math.floor((Date.now() - timerStart) / 1000);
+    const el = document.getElementById('armTimer');
+    if (el) el.textContent = formatTiempo(segs);
+  }, 1000);
+}
+
+function detenerTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function getTiempoTotal() {
+  if (!timerStart) return 0;
+  return timerElapsed + Math.floor((Date.now() - timerStart) / 1000);
+}
+
+function guardarTiempoVendedor(vendId, segs) {
+  try {
+    const key   = `armado_tiempo_${usuarioActual}`;
+    const datos = JSON.parse(localStorage.getItem(key) || '{}');
+    datos[vendId] = segs;
+    localStorage.setItem(key, JSON.stringify(datos));
+  } catch(e) {}
+}
+
+function getTiempoVendedor(vendId) {
+  try {
+    const key   = `armado_tiempo_${usuarioActual}`;
+    const datos = JSON.parse(localStorage.getItem(key) || '{}');
+    return datos[vendId] || null;
+  } catch(e) { return null; }
+}
 const synth = window.speechSynthesis;
 let vozVoice = null;
 function initVoz() {
@@ -1147,6 +1290,121 @@ function toggleVoz() {
   const txt = document.getElementById('vozTexto');
   if (vozActiva) { btn.className='voz-btn hablando'; leerActual(); }
   else           { synth.cancel(); btn.className='voz-btn pausado'; if(txt){txt.textContent='Dictado pausado';txt.classList.remove('leyendo');} }
+}
+
+// ── SUPERVISOR ─────────────────────────────────────────────────────────────
+const PIN_SUPERVISOR = '1234'; // Cambiá este PIN
+
+function mostrarModalSupervisor() {
+  document.getElementById('supervisorPin').value = '';
+  document.getElementById('modalSupervisor').classList.add('show');
+  setTimeout(() => document.getElementById('supervisorPin').focus(), 100);
+}
+function cerrarModalSupervisor() {
+  document.getElementById('modalSupervisor').classList.remove('show');
+}
+
+async function verificarPin() {
+  const pin = document.getElementById('supervisorPin').value.trim();
+  if (pin !== PIN_SUPERVISOR) { alert('PIN incorrecto'); return; }
+  cerrarModalSupervisor();
+  await generarReportePDF();
+}
+
+async function generarReportePDF() {
+  const fecha = localStorage.getItem(KEY_DATE) || new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+
+  // Obtener datos de Firebase
+  let datos = null;
+  if (window.fbGetReporte) datos = await window.fbGetReporte(fecha);
+
+  if (!datos) { alert('No hay datos de armado para hoy todavía.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+  const mL=14, mR=14, pW=210, pH=297;
+  let y = 0;
+
+  function header() {
+    doc.setFillColor(26,24,20);
+    doc.rect(0,0,pW,22,'F');
+    doc.setTextColor(232,160,32);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('LOS AMIGOS DISTRIBUCIONES', mL, 10);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(200,190,170);
+    doc.text(`Reporte de Armado — ${fecha.replace(/-/g,'/')}`, mL, 17);
+    doc.setTextColor(30,30,30);
+    y = 28;
+  }
+
+  function newPage() { doc.addPage(); y = 0; header(); }
+  header();
+
+  // Por cada operario
+  for (const [usuario, vendedores] of Object.entries(datos)) {
+    if (y > pH - 40) newPage();
+
+    // Header operario
+    doc.setFillColor(42,32,16);
+    doc.rect(mL, y, pW-mL-mR, 8, 'F');
+    doc.setTextColor(232,160,32);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text(`👤 ${usuario.toUpperCase()}`, mL+2, y+5.5);
+    doc.setTextColor(30,30,30);
+    y += 10;
+
+    // Columnas
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(120,120,120);
+    doc.text('VENDEDOR', mL, y+4);
+    doc.text('ZONA', mL+70, y+4);
+    doc.text('ARTÍCULOS', mL+95, y+4);
+    doc.text('TIEMPO', mL+130, y+4);
+    doc.text('HORA FIN', mL+155, y+4);
+    doc.setDrawColor(200,195,185);
+    doc.line(mL, y+6, pW-mR, y+6);
+    doc.setTextColor(30,30,30);
+    y += 8;
+
+    let totalSegs = 0;
+    let totalArts = 0;
+
+    for (const v of Object.values(vendedores)) {
+      if (y > pH-20) newPage();
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.text(String(v.vendedor||'—').substring(0,28), mL, y+4);
+      doc.text(`Z ${v.zona||'—'}`, mL+70, y+4);
+      doc.text(String(v.articulos||0), mL+95, y+4);
+      doc.setFont('courier','bold'); doc.setFontSize(8);
+      doc.setTextColor(34,150,60);
+      doc.text(formatTiempo(v.tiempo||0), mL+130, y+4);
+      doc.setTextColor(30,30,30);
+      doc.setFont('helvetica','normal');
+      doc.text(v.hora||'—', mL+155, y+4);
+      doc.setDrawColor(235,230,220);
+      doc.line(mL, y+6, pW-mR, y+6);
+      y += 7;
+      totalSegs += v.tiempo||0;
+      totalArts += v.articulos||0;
+    }
+
+    // Totales del operario
+    doc.setFillColor(245,242,235);
+    doc.rect(mL, y, pW-mL-mR, 7, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text(`TOTAL ${usuario.toUpperCase()}`, mL+2, y+5);
+    doc.text(String(totalArts), mL+95, y+5);
+    doc.setTextColor(34,150,60);
+    doc.text(formatTiempo(totalSegs), mL+130, y+5);
+    doc.setTextColor(30,30,30);
+    y += 12;
+  }
+
+  // Footer
+  doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text(`Generado el ${new Date().toLocaleString('es-AR')}`, mL, pH-8);
+
+  doc.save(`Reporte_Armado_${fecha}.pdf`);
 }
 
 // ── UTILS ───────────────────────────────────────────────────────────────────
