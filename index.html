@@ -6,8 +6,20 @@
 <title>Armado del Día — Los Amigos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// Cargar jsPDF y Firebase de forma diferida (no bloquean el inicio)
+function cargarJsPDF() {
+  if (window.jspdf) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+</script>
 <script type="module">
+  // Firebase se inicializa en segundo plano
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getDatabase, ref, set, get, child } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
@@ -324,6 +336,39 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   border: 1px solid rgba(34,197,94,0.3); padding: 2px 7px;
   border-radius: 3px; white-space: nowrap;
 }
+/* ══ DEPÓSITO SELECTOR ══ */
+.depo-selector { margin: 12px 0; }
+.depo-label { font-size: 0.78rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; text-align: center; margin-bottom: 10px; }
+.depo-btns { display: flex; gap: 8px; }
+.depo-btn {
+  flex: 1; padding: 12px 6px; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+.depo-btn.selected {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(232,160,32,0.12);
+}
+/* Badge de depósito en pantalla de armado */
+.arm-depo-badge {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 3px; letter-spacing: 0.05em; white-space: nowrap;
+}
+.arm-depo-badge.d1 { background: rgba(34,197,94,0.15);  color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.arm-depo-badge.d2 { background: rgba(59,130,246,0.15); color: #60a5fa;       border: 1px solid rgba(59,130,246,0.3); }
+.arm-depo-badge.d3 { background: rgba(168,85,247,0.15); color: #c084fc;       border: 1px solid rgba(168,85,247,0.3); }
+/* Familia de otro depósito: visual silenciada */
+.arm-fam-skip .arm-fam-name { opacity: 0.4; }
+.arm-fam-skip .arm-fam-code { opacity: 0.4; }
+.depo-skip-notice {
+  font-size: 0.72rem; font-family: 'IBM Plex Mono', monospace;
+  color: var(--muted); text-align: center; padding: 12px 0 4px;
+  letter-spacing: 0.04em;
+}
+
 .btn-volver { padding: 18px 40px; background: var(--accent); color: #1a1814; border: none; border-radius: var(--radius); font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
 
 /* Modal nuevo día */
@@ -351,6 +396,14 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
     <h2>¿Quién sos?</h2>
     <p>Ingresá tu nombre para guardar tu progreso</p>
     <input class="login-input" id="loginInput" type="text" placeholder="Tu nombre o número" maxlength="30" autocomplete="off">
+    <div class="depo-selector" id="depoSelector">
+      <div class="depo-label">¿Cuál es tu depósito?</div>
+      <div class="depo-btns">
+        <button class="depo-btn" data-depo="13" onclick="selDepo('13')">🏭 Depósito 1 y 3</button>
+        <button class="depo-btn" data-depo="2" onclick="selDepo('2')">🥤 Depósito 2</button>
+        <button class="depo-btn" data-depo="3" onclick="selDepo('3')">💊 Depósito 3</button>
+      </div>
+    </div>
     <button class="btn-primary" onclick="confirmarLogin()">Entrar →</button>
   </div>
 </div>
@@ -418,6 +471,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
     <button class="arm-back" onclick="volverALista()">‹</button>
     <div class="arm-vend-name" id="armVendName">—</div>
     <div class="arm-zona-tag"  id="armZona">ZONA —</div>
+    <div class="arm-depo-badge" id="armDepoBadge"></div>
     <div class="arm-timer" id="armTimer">0:00</div>
   </div>
   <div class="arm-global-prog">
@@ -434,13 +488,13 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   <div id="armWrapper">
     <div class="arm-fam-hdr">
       <div class="arm-fam-nav">
-        <button class="arm-nav-btn" id="btnPrev" onclick="irFam(currentFam-1)">‹</button>
+        <button class="arm-nav-btn" id="btnPrev" onclick="irFam(prevFamMia(currentFam))">‹</button>
         <div class="arm-fam-info">
           <div class="arm-fam-counter" id="armFamCounter">Familia 1 de 1</div>
           <div class="arm-fam-name"    id="armFamName">—</div>
         </div>
         <div class="arm-fam-code" id="armFamCode">[0000]</div>
-        <button class="arm-nav-btn" id="btnNext" onclick="irFam(currentFam+1)">›</button>
+        <button class="arm-nav-btn" id="btnNext" onclick="irFam(nextFamMia(currentFam))">›</button>
       </div>
       <div class="arm-fam-prog-row">
         <div class="arm-fam-prog-bar"><div class="arm-fam-prog-fill" id="armFamFill" style="width:0%"></div></div>
@@ -504,6 +558,75 @@ const KEY_PROGRESS  = (user) => {             // progreso por operario + por dí
   return `armado_prog_${user}_${fecha}`;
 };
 const KEY_DRIVE     = 'armado_drive_link';
+const KEY_DEPOSITO  = 'armado_deposito';       // depósito elegido por el usuario
+
+// ── CONFIGURACIÓN DE DEPÓSITOS ─────────────────────────────────────────────
+// Cada depósito arma SOLO los códigos de familia listados aquí.
+// Los demás se auto-tildan (el operario no los ve ni los toca).
+// Para agregar más familias: agregá el código entre comillas en el array.
+const DEPOSITO_FAMILIAS = {
+  1: [
+    // Depósito 1 — Almacén general
+    '0001',
+    '0101','0102','0103','0104','0107',
+    '0201',
+    '0301',
+    '0401','0402','0403','0404','0405','0406','0407','0408',
+    '0501','0502','0505','0508','0509',
+    '0601',
+    '0701','0702',
+    '0801','0802',
+    '0901','0902','0903','0904','0905','0906','0907','0908','0909','0910','0911','0912','0913',
+    '1002','1003','1004',
+    '1101','1102',
+    '1201','1202',
+    '1601','1602','1603',
+    '2001',
+    '2101','2102','2103','2104','2105','2106','2107','2108','2109',
+    '2201','2203','2205','2501'
+  ],
+  2: [
+    // Depósito 2 — Bebidas y saborizadas
+    '1301','1901',
+    '2001',
+    '5001','5002','5003',
+    '5101',
+    '5301',
+    '5402','5403','5404','5405',
+    '5601','5603','5607'
+  ],
+  3: [
+    // Depósito 3 — Perfumería, limpieza, medicamentos, varios
+    '1302','1304','1305','1306',
+    '1401','1402','1403',
+    '1501',
+    '1701','1703','1704','1705','1706','1707','1709','1710',
+    '1713','1714','1717','1722','1723','1725','1726','1729','1730','1731',
+    '1801','1802','1803',
+    '2301',
+    '5701','5702',
+    '5801',
+    '5901','5902',
+    '6001'
+  ]
+};
+
+// Devuelve el número de depósito al que pertenece una familia (default: 1)
+function getDepositoDeFamily(codFamilia) {
+  for (const [depo, codigos] of Object.entries(DEPOSITO_FAMILIAS)) {
+    if (codigos.includes(String(codFamilia))) return parseInt(depo);
+  }
+  return 1;
+}
+
+// ¿Esta familia pertenece al depósito del usuario actual?
+function famEsMia(codFamilia) {
+  if (!depositoActual) return true; // sin depósito elegido → ver todo
+  const depoFam = getDepositoDeFamily(codFamilia);
+  // Opción combinada '13' = depósito 1 y 3
+  if (depositoActual === '13') return depoFam === 1 || depoFam === 3;
+  return depoFam === parseInt(depositoActual);
+}
 
 // ── ESTADO ─────────────────────────────────────────────────────────────────
 let vendors     = [];   // estructura parseada de PDFs
@@ -512,14 +635,16 @@ let currentFam  = 0;
 let currentItem = 0;
 let filterMode  = 'all';
 let vozActiva   = false;
-let usuarioActual = '';
+let usuarioActual  = '';
+let depositoActual = 0; // 1, 2 o 3 (0 = sin selección = ver todo)
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 (function init() {
   // ¿Hay usuario guardado?
   const user = localStorage.getItem(KEY_USER);
   if (user) {
-    usuarioActual = user;
+    usuarioActual  = user;
+    depositoActual = localStorage.getItem(KEY_DEPOSITO) || '';
     // ¿Hay PDFs del día guardados y válidos?
     const saved = localStorage.getItem(KEY_VENDORS);
     if (saved) {
@@ -547,11 +672,22 @@ document.getElementById('loginInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') confirmarLogin();
 });
 
+let depoSeleccionado = '';
+
+function selDepo(n) {
+  depoSeleccionado = String(n);
+  document.querySelectorAll('.depo-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.depo === String(n));
+  });
+}
+
 function confirmarLogin() {
   const val = document.getElementById('loginInput').value.trim();
   if (!val) { document.getElementById('loginInput').focus(); return; }
-  usuarioActual = val;
+  usuarioActual  = val;
+  depositoActual = depoSeleccionado;
   localStorage.setItem(KEY_USER, val);
+  localStorage.setItem(KEY_DEPOSITO, depositoActual);
   // ¿Hay PDFs guardados?
   const saved = localStorage.getItem(KEY_VENDORS);
   if (saved) {
@@ -563,8 +699,12 @@ function confirmarLogin() {
 function cambiarUsuario() {
   synth.cancel();
   localStorage.removeItem(KEY_USER);
-  usuarioActual = '';
+  localStorage.removeItem(KEY_DEPOSITO);
+  usuarioActual  = '';
+  depositoActual = '';
+  depoSeleccionado = '';
   document.getElementById('loginInput').value = '';
+  document.querySelectorAll('.depo-btn').forEach(b => b.classList.remove('selected'));
   showScreen('sLogin');
 }
 
@@ -620,16 +760,22 @@ async function cargarDesdeDrive() {
     document.getElementById('driveSaved').style.display = 'flex';
 
     pdfBuffers = [];
-    for (let i = 0; i < files.length; i++) {
-      updateProgress(i, files.length, files[i].name);
-      try {
-        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}?alt=media&key=AIzaSyB_H2upRg9azJY9E3JRdfgjqVMiPO_dSfo`);
-        if (r.ok) {
-          pdfBuffers.push({ name: files[i].name, buffer: await r.arrayBuffer() });
-        }
-      } catch(e) {
-        console.warn('No se pudo descargar:', files[i].name, e);
-        // Seguir con los demás aunque falle uno
+    const BATCH = 3;
+    for (let i = 0; i < files.length; i += BATCH) {
+      const grupo = files.slice(i, i + BATCH);
+      updateProgress(i, files.length, grupo[0].name);
+      const resultados = await Promise.allSettled(
+        grupo.map(async f => {
+          // Usar proxy propio para evitar CORS
+          const url = `/api/pdf?id=${f.id}`;
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return { name: f.name, buffer: await r.arrayBuffer() };
+        })
+      );
+      for (const res of resultados) {
+        if (res.status === 'fulfilled') pdfBuffers.push(res.value);
+        else console.warn('Falló un PDF:', res.reason);
       }
     }
     btn.disabled=false; btn.textContent='Cargar';
@@ -755,7 +901,7 @@ function parsearTexto(text) {
     const items  = [];
     // Sinergis exporta cantidades como N,000 (enteros) o N,XXX (por kilo como 1,885)
     // El truco es que la cantidad siempre tiene exactamente 3 decimales
-    const rx = /(\d{5})\s+(.+?)\s+(\d+),(\d{3})(?:\s|$)/g;
+    const rx = /(\d{5})\s+(.+?)\s+(\d+)[,.](\d{3})(?:\s|$)/g;
     let m;
     while ((m = rx.exec(bloque)) !== null) {
       const desc = m[2].trim().replace(/\s+/g,' ');
@@ -787,22 +933,25 @@ function saveCheckState(vendId, checkState) {
 
 // ── ALERTAS ESPECIALES ─────────────────────────────────────────────────────
 const PALABRAS_CAMARA = [
-  'salamin milan','salamin milán','fiambre','chipacito',
-  'queso cremoso','queso barra'
+  'SALAMIN MILAN','FETEADO','FIAMBRE','CHIPACITO',
+  'QUESO CREMOSO','QUESO BARRA','BARRA SANTA MARIA',
+  'CREMOSO STA MARIA','JAMON','JAMÓN','PALETA',
+  'MORTADELA','BOLOGNA','CONGELADO'
 ];
 
 function detectarAlertas(v) {
   const texto = v.familias
-    .flatMap(f => f.items.map(it => it.desc.toLowerCase()))
+    .flatMap(f => f.items.map(it => it.desc.toUpperCase()))
     .join(' ');
   return {
     camara: PALABRAS_CAMARA.some(p => texto.includes(p)),
-    farma:  texto.includes('venta farmacia')
+    farma:  texto.includes('VENTA FARMACIA')
   };
 }
 function mostrarLista() {
   synth.cancel(); vozActiva = false;
-  document.getElementById('listUser').textContent = usuarioActual;
+  const depoLabel = depositoActual ? ` · D${depositoActual}` : '';
+  document.getElementById('listUser').textContent = usuarioActual + depoLabel;
   showScreen('sList');
   renderDaySummary();
   renderVendors();
@@ -904,9 +1053,27 @@ function abrirVendedor(id) {
   currentItem       = 0;
   checkStateCurrent = getCheckState(id);
 
-  // Arrancar en la primera familia/ítem incompleto
+  // Auto-tildar familias de OTROS depósitos (el operario solo toca las suyas)
+  if (depositoActual) {
+    let autoTildado = false;
+    currentVend.familias.forEach((fam, fi) => {
+      if (!famEsMia(fam.codigo)) {
+        fam.items.forEach((_, ii) => {
+          const key = `${fi}-${ii}`;
+          if (!checkStateCurrent[key]) {
+            checkStateCurrent[key] = true;
+            autoTildado = true;
+          }
+        });
+      }
+    });
+    if (autoTildado) saveCheckState(id, checkStateCurrent);
+  }
+
+  // Arrancar en la primera familia MÍA con ítem incompleto
   outer: for (let fi = 0; fi < currentVend.familias.length; fi++) {
     const fam = currentVend.familias[fi];
+    if (depositoActual && !famEsMia(fam.codigo)) continue; // saltar familia de otro depósito
     for (let ii = 0; ii < fam.items.length; ii++) {
       if (!checkStateCurrent[`${fi}-${ii}`]) { currentFam = fi; currentItem = ii; break outer; }
     }
@@ -914,6 +1081,16 @@ function abrirVendedor(id) {
 
   document.getElementById('armVendName').textContent = currentVend.vendedor;
   document.getElementById('armZona').textContent     = `ZONA ${currentVend.zona}`;
+
+  // Badge de depósito
+  const badge = document.getElementById('armDepoBadge');
+  if (depositoActual) {
+    badge.textContent  = `D${depositoActual}`;
+    badge.className    = `arm-depo-badge d${depositoActual}`;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
 
   vozActiva = false;
   document.getElementById('vozBtn').className = 'voz-btn pausado';
@@ -926,9 +1103,45 @@ function abrirVendedor(id) {
   actualizarGlobal();
 }
 
+// Devuelve el índice de la familia anterior que pertenece a mi depósito (-1 si no hay)
+function prevFamMia(desde) {
+  if (!depositoActual) return desde - 1;
+  for (let i = desde - 1; i >= 0; i--) {
+    if (famEsMia(currentVend.familias[i].codigo)) return i;
+  }
+  return -1;
+}
+
+// Devuelve el índice de la siguiente familia que pertenece a mi depósito (-1 si no hay)
+function nextFamMia(desde) {
+  if (!depositoActual) return desde + 1 < currentVend.familias.length ? desde + 1 : -1;
+  for (let i = desde + 1; i < currentVend.familias.length; i++) {
+    if (famEsMia(currentVend.familias[i].codigo)) return i;
+  }
+  return -1;
+}
+
 function irFam(idx) {
   if (!currentVend) return;
   if (idx < 0 || idx >= currentVend.familias.length) return;
+
+  // Si hay depósito activo y esta familia no es mía, buscar la próxima que sí lo sea
+  if (depositoActual) {
+    const dir = idx >= currentFam ? 1 : -1; // dirección de navegación
+    let intentos = 0;
+    while (intentos < currentVend.familias.length) {
+      if (idx < 0 || idx >= currentVend.familias.length) break;
+      const fam = currentVend.familias[idx];
+      if (famEsMia(fam.codigo)) break; // encontré una familia mía
+      idx += dir;
+      intentos++;
+    }
+    // Si terminamos fuera de rango → quedarse donde estamos
+    if (idx < 0 || idx >= currentVend.familias.length) return;
+    // Si aún no es mía (caso borde) → no avanzar
+    if (!famEsMia(currentVend.familias[idx].codigo)) return;
+  }
+
   currentFam  = idx;
   currentItem = siguienteLibre(0) ?? 0;
   renderFam();
@@ -941,11 +1154,24 @@ function irFam(idx) {
 function renderFam() {
   const v   = currentVend;
   const fam = v.familias[currentFam];
-  document.getElementById('armFamCounter').textContent = `Familia ${currentFam+1} de ${v.familias.length}`;
-  document.getElementById('armFamName').textContent    = fam.nombre;
-  document.getElementById('armFamCode').textContent    = `[${fam.codigo}]`;
-  document.getElementById('btnPrev').disabled = currentFam === 0;
-  document.getElementById('btnNext').disabled = currentFam === v.familias.length - 1;
+
+  // Contador: contar solo familias mías
+  if (depositoActual) {
+    const misFams   = v.familias.filter(f => famEsMia(f.codigo));
+    const miIdx     = misFams.findIndex(f => f.codigo === fam.codigo);
+    document.getElementById('armFamCounter').textContent = `Familia ${miIdx+1} de ${misFams.length}`;
+  } else {
+    document.getElementById('armFamCounter').textContent = `Familia ${currentFam+1} de ${v.familias.length}`;
+  }
+
+  document.getElementById('armFamName').textContent = fam.nombre;
+  document.getElementById('armFamCode').textContent = `[${fam.codigo}]`;
+
+  // Botones prev/next: deshabilitar si no hay familia anterior/siguiente en MI depósito
+  const prevFamIdx = prevFamMia(currentFam);
+  const nextFamIdx = nextFamMia(currentFam);
+  document.getElementById('btnPrev').disabled = prevFamIdx === -1;
+  document.getElementById('btnNext').disabled = nextFamIdx === -1;
 
   const scroll = document.getElementById('armItems');
   scroll.innerHTML = '';
@@ -986,7 +1212,8 @@ function toggleItem(key, ii) {
   if (done === fam.items.length) {
     if (vozActiva) hablar(`${fam.nombre} completa`);
     setTimeout(() => {
-      if (currentFam < currentVend.familias.length - 1) irFam(currentFam + 1);
+      const next = nextFamMia(currentFam);
+      if (next !== -1) irFam(next);
       else mostrarFinalVendedor();
     }, 600);
   } else if (vozActiva && checkStateCurrent[key]) {
@@ -1009,11 +1236,12 @@ function tildarTodos() {
   actualizarGlobal();
   actualizarBtnTildar();
 
-  // Si se tildaron todos → pasar a la siguiente familia automáticamente
+  // Si se tildaron todos → pasar a la siguiente familia mía automáticamente
   if (!allDone) {
     if (vozActiva) hablar(`${fam.nombre} completa`);
     setTimeout(() => {
-      if (currentFam < currentVend.familias.length - 1) irFam(currentFam + 1);
+      const next = nextFamMia(currentFam);
+      if (next !== -1) irFam(next);
       else mostrarFinalVendedor();
     }, 600);
   }
@@ -1312,6 +1540,7 @@ async function verificarPin() {
 }
 
 async function generarReportePDF() {
+  await cargarJsPDF();
   const fecha = localStorage.getItem(KEY_DATE) || new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
 
   // Obtener datos de Firebase
