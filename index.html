@@ -581,7 +581,6 @@ const DEPOSITO_FAMILIAS = {
     '1101','1102',
     '1201','1202',
     '1601','1602','1603',
-    '2001',
     '2101','2102','2103','2104','2105','2106','2107','2108','2109',
     '2201','2203','2205','2501'
   ],
@@ -906,7 +905,9 @@ function parsearTexto(text) {
     while ((m = rx.exec(bloque)) !== null) {
       const desc = m[2].trim().replace(/\s+/g,' ');
       if (/Repartidor|Direccion|Pagina|Comprobante|LA DISTRIBUCIONES/i.test(desc)) continue;
-      const qty = parseInt(m[3]); // parte entera
+      const qtyEntera = parseInt(m[3]);
+      const qtyDec    = parseInt(m[4]);
+      const qty = qtyDec > 0 ? parseFloat(`${qtyEntera}.${m[4]}`) : qtyEntera;
       if (qty === 0) continue;    // ignorar si es cero
       items.push({ codigo: m[1], desc, qty });
     }
